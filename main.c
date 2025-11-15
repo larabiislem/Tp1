@@ -24,10 +24,10 @@ void tester(const char* fichier) {
 }
 
 int main() {
-    tester("./dataset/Random100.txt");
-    tester("./dataset/Random1000.txt");
-    tester("./dataset/Test-1.txt");
-    tester("./dataset/Test-2.txt");
-    tester("./dataset/Test-3.txt");
+    tester("./Dataset/Random100.txt");
+    tester("./Dataset/Random1000.txt");
+    tester("./Dataset/Test-1.txt");
+    tester("./Dataset/Test-2.txt");
+    tester("./Dataset/Test-3.txt");
     return 0;
 }
