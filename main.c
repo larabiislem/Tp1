@@ -5,10 +5,15 @@
 
 void tester(const char* fichier) {
     FILE* f = fopen(fichier, "r");
-    if (!f) return;
+    if (!f) {
+        printf("Impossible d'ouvrir : %s\n\n", fichier);
+        return;
+    }
 
     long long n;
-    printf("Fichier : %s\n", fichier);
+    int total = 0;
+    int nbPremiers = 0;
+    int incoherences = 0;
 
     while (fscanf(f, "%lld", &n) == 1) {
         int a1 = estPremier_A1(n);
@@ -16,18 +21,31 @@ void tester(const char* fichier) {
         int a3 = estPremier_A3(n);
         int a4 = estPremier_A4(n);
 
-        printf("%lld | A1=%d | A2=%d | A3=%d | A4=%d\n", n, a1, a2, a3, a4);
+        total++;
+
+        if (a1 == 1 && a2 == 1 && a3 == 1 && a4 == 1) nbPremiers++;
+
+        if (!(a1 == a2 && a2 == a3 && a3 == a4)) incoherences++;
     }
 
-    printf("\n");
+    printf("============================================================\n");
+    printf("Fichier : %s\n", fichier);
+    printf("------------------------------------------------------------\n");
+    printf("Total testés              : %d\n", total);
+    printf("Nombres premiers          : %d\n", nbPremiers);
+    if (total > 0)
+        printf("Pourcentage de premiers   : %.2f %%\n", (nbPremiers * 100.0) / total);
+    printf("Incohérences algorithmes  : %d\n", incoherences);
+    printf("============================================================\n\n");
+
     fclose(f);
 }
 
 int main() {
-    tester("./Dataset/Random100.txt");
-    tester("./Dataset/Random1000.txt");
-    tester("./Dataset/Test-1.txt");
-    tester("./Dataset/Test-2.txt");
-    tester("./Dataset/Test-3.txt");
+    tester("dataset/Random100.txt");
+    tester("dataset/Random1000.txt");
+    tester("dataset/Test-1.txt");
+    tester("dataset/Test-2.txt");
+    tester("dataset/Test-3.txt");
     return 0;
 }
