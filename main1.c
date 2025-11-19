@@ -72,8 +72,11 @@ static void process_file(const char *path)
 int main(void)
 {
     const char *files[] = {
-        "dataset/Random100.txt",
-        "dataset/Random1000.txt"};
+        "dataset/Test-1.txt",
+        "dataset/Test-2.txt",
+        "dataset/Test-3.txt"
+    
+    };
 
     printf("File,N,Algorithm,Result,Time(s)\n");
 
