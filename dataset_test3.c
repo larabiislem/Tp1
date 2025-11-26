@@ -24,6 +24,8 @@ int main() {
         for (int k = 0; k < par_taille; k++) {
             long long x = generer_nombre(digits);
             fprintf(f, "%lld\n", x);
+
+            
         }
     }
 
