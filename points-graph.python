@@ -138,6 +138,20 @@ def percentile(values: Sequence[float], q: float) -> float:
 	return lower + (upper - lower) * (pos - lower_index)
 
 
+def _slugify(value: str) -> str:
+	"""Return a filesystem-safe identifier derived from dataset/file names."""
+
+	allowed: List[str] = []
+	for char in value:
+		if char.isalnum():
+			allowed.append(char.lower())
+		elif char in {"-", "_"}:
+			allowed.append(char)
+		else:
+			allowed.append("-")
+	return "".join(allowed).strip("-") or "dataset"
+
+
 def main() -> None:
 	for csv_name in CSV_FILES:
 		csv_path = ROOT_DIR / csv_name
@@ -154,6 +168,19 @@ def main() -> None:
 		output_path = OUTPUT_DIR / f"{csv_path.stem}_scatter.png"
 		render_scatter(records, f"Nuage de points — {csv_path.name}", output_path)
 		print(f"    ➜ Figure enregistrée dans {output_path.relative_to(ROOT_DIR)}")
+
+		records_by_file: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+		for row in records:
+			records_by_file[row["File"]].append(row)
+
+		for dataset_name, dataset_records in sorted(records_by_file.items()):
+			safe_name = _slugify(dataset_name)
+			dataset_output = OUTPUT_DIR / f"{csv_path.stem}_{safe_name}_scatter.png"
+			title = f"Nuage de points — {csv_path.name} — {dataset_name}"
+			render_scatter(dataset_records, title, dataset_output)
+			print(
+				f"    ➜ Figure dataset enregistrée dans {dataset_output.relative_to(ROOT_DIR)}"
+			)
 
 
 if __name__ == "__main__":
