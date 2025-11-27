@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""Generate scatter plots (nuages de points) for the timing benchmarks."""
+
+from __future__ import annotations
+
+import csv
+from collections import defaultdict
+import math
+from pathlib import Path
+from typing import Dict, Iterable, List, Sequence, Tuple
+
+import matplotlib.pyplot as plt
+
+ROOT_DIR = Path(__file__).resolve().parent
+CSV_FILES = ["timings.csv", "timings1.csv"]
+OUTPUT_DIR = ROOT_DIR / "analysis_output"
+
+# Consistent color palette so algorithms are easy to compare between plots.
+ALGO_COLORS = {
+	"A1": "#1f77b4",
+	"A2": "#ff7f0e",
+	"A3": "#2ca02c",
+	"A4": "#d62728",
+}
+
+
+def load_records(csv_path: Path) -> List[Dict[str, str]]:
+	"""Load every row in the CSV file as a typed dictionary."""
+
+	records: List[Dict[str, str]] = []
+	with csv_path.open(newline="", encoding="utf-8") as handle:
+		reader = csv.DictReader(handle)
+		for row in reader:
+			row["N"] = int(row["N"])  # type: ignore[assignment]
+			row["Time(s)"] = float(row["Time(s)"])  # type: ignore[assignment]
+			records.append(row)
+	return records
+
+
+def build_series(records: Iterable[Dict[str, str]]) -> Dict[str, Tuple[List[int], List[float]]]:
+	"""Group N/time samples per algorithm for scatter drawing."""
+
+	series: Dict[str, Tuple[List[int], List[float]]] = defaultdict(lambda: ([], []))
+	for row in records:
+		n_values, time_values = series[row["Algorithm"]]
+		n_values.append(int(row["N"]))
+		time_values.append(float(row["Time(s)"]))
+	return series
+
+
+def render_scatter(records: List[Dict[str, str]], title: str, output_path: Path) -> None:
+	"""Create a scatter plot with one cloud per algorithm."""
+
+	series = build_series(records)
+	fig, (ax_full, ax_zoom) = plt.subplots(
+		nrows=2,
+		sharex=True,
+		figsize=(9, 7),
+		height_ratios=[2.2, 1.0],
+	)
+
+	all_times = [time for _, (_, times) in series.items() for time in times]
+	max_time = max(all_times, default=0.0)
+	positive_times = [time for time in all_times if time > 0]
+	min_positive = min(positive_times, default=None)
+	use_log = bool(min_positive and max_time / min_positive > 100)
+	zero_floor = (min_positive or 1e-9) / 5 if use_log else None
+
+	_plot_series(ax_full, series, zero_floor)
+	if use_log:
+		ax_full.set_yscale("log")
+		ax_full.text(
+			0.02,
+			0.92,
+			"Échelle logarithmique",
+			transform=ax_full.transAxes,
+			fontsize=9,
+			bbox={"facecolor": "white", "alpha": 0.6, "edgecolor": "none"},
+		)
+
+	zoom_source = positive_times or all_times
+	zoom_limit = percentile(zoom_source, 95) if zoom_source else 0.0
+	if zoom_limit:
+		zoom_limit *= 1.1
+	_plot_series(ax_zoom, series)
+	ax_zoom.set_ylim(0, zoom_limit or max_time or 1.0)
+
+	for axis in (ax_full, ax_zoom):
+		axis.grid(True, linestyle="--", linewidth=0.4, alpha=0.6)
+		axis.legend(title="Algorithme", loc="best")
+
+	ax_full.set_ylabel("Temps (secondes)")
+	ax_full.set_title(title)
+	ax_zoom.set_ylabel("Temps (secondes) — zoom")
+	ax_zoom.set_xlabel("N (taille d'entrée)")
+	fig.tight_layout()
+
+	output_path.parent.mkdir(parents=True, exist_ok=True)
+	fig.savefig(output_path, dpi=300)
+	plt.close(fig)
+
+
+def _plot_series(ax: plt.Axes, series: Dict[str, Tuple[List[int], List[float]]], zero_floor: float | None = None) -> None:
+	"""Scatter helper so both axes share the same styling."""
+
+	for algorithm, (n_values, time_values) in sorted(series.items()):
+		if not n_values:
+			continue
+		adjusted_times = [(_ if (_ := value) > 0 else zero_floor) if zero_floor else value for value in time_values]
+		ax.scatter(
+			n_values,
+			adjusted_times,
+			s=18,
+			alpha=0.7,
+			label=algorithm,
+			color=ALGO_COLORS.get(algorithm),
+			edgecolors="none",
+		)
+
+
+def percentile(values: Sequence[float], q: float) -> float:
+	"""Return the q-th percentile (0-100) using linear interpolation."""
+
+	if not values:
+		return 0.0
+	if not 0 <= q <= 100:
+		raise ValueError("Percentile must be between 0 and 100")
+	sorted_vals = sorted(values)
+	if len(sorted_vals) == 1:
+		return sorted_vals[0]
+	pos = (len(sorted_vals) - 1) * (q / 100)
+	lower_index = math.floor(pos)
+	upper_index = math.ceil(pos)
+	if lower_index == upper_index:
+		return sorted_vals[int(pos)]
+	lower = sorted_vals[lower_index]
+	upper = sorted_vals[upper_index]
+	return lower + (upper - lower) * (pos - lower_index)
+
+
+def main() -> None:
+	for csv_name in CSV_FILES:
+		csv_path = ROOT_DIR / csv_name
+		if not csv_path.exists():
+			print(f"[!] Fichier introuvable : {csv_path}")
+			continue
+
+		print(f"[*] Traitement de {csv_path.name} ...")
+		records = load_records(csv_path)
+		if not records:
+			print(f"    Aucun enregistrement dans {csv_path.name}")
+			continue
+
+		output_path = OUTPUT_DIR / f"{csv_path.stem}_scatter.png"
+		render_scatter(records, f"Nuage de points — {csv_path.name}", output_path)
+		print(f"    ➜ Figure enregistrée dans {output_path.relative_to(ROOT_DIR)}")
+
+
+if __name__ == "__main__":
+	main()
